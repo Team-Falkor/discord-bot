@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model guild_config {
+  id              Int      @id @default(autoincrement())
+  guild_id        String   @unique
+  rankup_messages Boolean? @default(false)
+  join_messages   Boolean? @default(false)
+
+  bannedWords String[] @default([])
+}
+
+model poll_votes {
+  id           Int      @id @default(autoincrement())
+  guild_id     String
+  message_id   String
+  owner_id     String
+  up_members   String[] @default([])
+  down_members String[] @default([])
+  upvotes      Int      @default(0)
+  downvotes    Int      @default(0)
+}
+
+model balance {
+  id       String @id @default(uuid())
+  user_id  String
+  guild_id String
+  balance  Int    @default(0)
+}
+
+model counting_game {
+  id             String @id @default(uuid())
+  guild_id       String
+  channel_id     String @unique
+  count          Int    @default(1)
+  last_person_id String
+}
+
+model level {
+  id       String @id @default(uuid())
+  user_id  String
+  guild_id String
+  xp       Int    @default(0)
+  level    Int    @default(0)
+}
+
+model ModerationChannelSettings {
+  id                Int                @id @unique @default(autoincrement())
+  deleted_message   Boolean            @default(true)
+  edited_message    Boolean            @default(true)
+  user_left         Boolean            @default(true)
+  user_join         Boolean            @default(true)
+  user_ban          Boolean            @default(true)
+  user_timeout      Boolean            @default(true)
+  user_kick         Boolean            @default(true)
+  ModerationChannel ModerationChannel?
+}
+
+model ModerationChannel {
+  id         Int                       @id @unique @default(autoincrement())
+  guild_id   String                    @unique
+  channel_id String
+  settings   ModerationChannelSettings @relation(fields: [id], references: [id])
+}
+
+model Reaction {
+  id         Int    @id @default(autoincrement())
+  guild_id   String
+  message_id String
+  emoji      String
+  role       String
+}
+
+model AutoJoinRoles {
+  id       Int    @id @default(autoincrement())
+  guild_id String
+  role     String
+}
+
+model ChannelSettings {
+  id                        Int      @id @unique @default(autoincrement())
+  guid_id                   String   @unique
+  channel_id_reddit_posts   String?  @unique
+  subreddits                String[] @default([])
+  subreddits_interval_hours Int      @default(3)
+  channel_id_members        String?  @unique
+  channel_id_online         String?  @unique
+  channel_id_offline        String?  @unique
+  join_messages             String?  @unique
+}
+
+model RedditPosts {
+  id        Int    @id @unique @default(autoincrement())
+  title     String
+  sub       String
+  guiid_id  String
+  reddit_id String
+}

@@ -1,0 +1,37 @@
+{
+  "name": "falkor-bot",
+  "main": "./dist/index.js",
+  "exports": "./dist/index.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=production ts-node ./src/Bot.ts",
+    "dev": "cross-env NODE_ENV=development nodemon --config nodemon.json src/Bot.ts",
+    "build": "tsc",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:update": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "@tdanks2000/fancyconsolelog": "^0.1.0",
+    "ascii-table3": "^0.9.0",
+    "bcrypt": "^5.1.1",
+    "canvafy": "^7.2.0",
+    "dayjs": "^1.11.13",
+    "discord.js": "^14.16.1",
+    "dotenv": "^16.4.5",
+    "ms": "^2.1.3",
+    "rfdc": "^1.4.1"
+  },
+  "devDependencies": {
+    "@types/ms": "^0.7.34",
+    "@types/node": "^20.16.5",
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.1.4",
+    "prisma": "^5.19.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
