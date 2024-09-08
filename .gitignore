@@ -3,6 +3,7 @@
 # Logs
 
 logs
+!src/structure/logs
 _.log
 npm-debug.log_
 yarn-debug.log*
