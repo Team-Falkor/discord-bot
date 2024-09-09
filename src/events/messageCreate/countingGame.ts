@@ -21,6 +21,8 @@ export default async function (
   // Early return if the author is invalid, a bot, or content is missing
   if (!message.author || message.author.bot || !message.content) return;
 
+  console.log(message.content);
+
   const message_number = parseInt(message.content);
 
   // Early return if the message content is not a number
