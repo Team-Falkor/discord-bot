@@ -15,10 +15,12 @@ export default function (
 ) {
   try {
     if (!oldMessage.guild || !newMessage.guild) return;
-    console.log("test");
+
+    if (oldMessage.author?.bot) return;
 
     const modLogs = client.modLogs.get(oldMessage.guild.id);
     if (!modLogs) return;
+    if (!modLogs.settings?.edited_message) return;
 
     const embed = new EmbedBuilder()
       .setColor("Yellow")

@@ -14,9 +14,11 @@ export default function (
 ) {
   try {
     if (!member.guild) return;
+    if (member.user?.bot) return;
 
     const modLogs = client.modLogs.get(member.guild.id);
     if (!modLogs) return;
+    if (!modLogs.settings?.user_join) return;
 
     const embed = new EmbedBuilder()
       .setColor("Green")

@@ -9,10 +9,11 @@ export default function (
 ) {
   try {
     if (!message.guild) return;
-    console.log("test");
+    if (message.author?.bot) return;
 
     const modLogs = client.modLogs.get(message.guild.id);
     if (!modLogs) return;
+    if (!modLogs.settings?.deleted_message) return; // check i
 
     const embed = new EmbedBuilder()
       .setColor("Red")

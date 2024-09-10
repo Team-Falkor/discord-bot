@@ -1,5 +1,5 @@
 import { ApplicationCommandOptionType } from "discord.js";
-import { CommandData, SlashCommandProps, CommandOptions } from "../../handler";
+import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "modlogs",
@@ -14,47 +14,54 @@ export const data: CommandData = {
   ],
 };
 
-export async function run({ interaction, client, handler }: SlashCommandProps) {
+export async function run({ interaction, client }: SlashCommandProps) {
   const db = client.db;
+  const guildId = interaction.guild?.id;
   const channel = interaction.options.getChannel("channel", true);
 
-  const check = await db.moderationChannel.findFirst({
-    where: {
-      guild_id: interaction.guild?.id!,
-    },
-  });
-
-  if (check?.channel_id === channel.id) {
-    await interaction.reply({
-      content: "This channel is already set as the mod logs channel.",
-      ephemeral: true,
-    });
-  } else {
-    await db.moderationChannel.upsert({
-      where: {
-        guild_id: interaction.guild?.id!,
-      },
-      create: {
-        guild_id: interaction.guild?.id!,
-        channel_id: channel.id,
-        settings: {
-          create: {},
-        },
-      },
-      update: {
-        channel_id: channel.id,
-      },
-    });
-
-    client.modLogs.set(interaction.guild?.id!, channel.id);
-    return await interaction.reply({
-      content: "Successfully set mod logs channel.",
+  // Early return if guildId is missing (defensive check)
+  if (!guildId) {
+    return interaction.reply({
+      content: "Guild not found.",
       ephemeral: true,
     });
   }
 
-  client.modLogs.set(interaction.guild?.id!, channel.id);
-  await interaction.reply({
+  // Check if the channel is already set for mod logs
+  const existingLog = await db.moderationChannel.findFirst({
+    where: { guild_id: guildId },
+  });
+
+  if (existingLog?.channel_id === channel.id) {
+    return interaction.reply({
+      content: "This channel is already set as the mod logs channel.",
+      ephemeral: true,
+    });
+  }
+
+  // Upsert the mod logs channel and settings
+  const modLogData = await db.moderationChannel.upsert({
+    where: { guild_id: guildId },
+    create: {
+      guild_id: guildId,
+      channel_id: channel.id,
+      settings: { create: {} },
+    },
+    update: { channel_id: channel.id },
+    select: {
+      channel_id: true,
+      settings: true,
+    },
+  });
+
+  // Update the client modLogs cache
+  client.modLogs.set(guildId, {
+    channelId: modLogData.channel_id,
+    settings: modLogData.settings,
+  });
+
+  // Send success reply
+  return interaction.reply({
     content: "Successfully set mod logs channel.",
     ephemeral: true,
   });
