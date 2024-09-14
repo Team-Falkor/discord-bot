@@ -8,7 +8,7 @@ const console = new Console();
 
 import { colors, Handler } from "../handler";
 import { config } from "../utils/config";
-import { igdb } from "../utils/igdb";
+import { IGDB } from "../utils/igdb";
 import { ModLogs } from "./logs";
 
 export class ClientClass extends Client {
@@ -17,7 +17,7 @@ export class ClientClass extends Client {
   public console = console;
   public config = config;
 
-  public igdb = igdb;
+  public igdb: IGDB = new IGDB();
   public modLogs = new ModLogs();
 
   constructor() {

@@ -4,6 +4,8 @@ import { ApiResponse, IGDBReturnDataType, InfoReturn } from "./types";
 
 const { TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET } = process.env;
 
+let instance: IGDB | null = null;
+
 class IGDB {
   private clientId: string = TWITCH_CLIENT_ID ?? "";
   private clientSecret: string = TWITCH_CLIENT_SECRET ?? "";
@@ -11,6 +13,11 @@ class IGDB {
   private tokenExpiration: number = 0;
 
   private gettingAccessToken = false;
+
+  constructor() {
+    if (!instance) instance = this;
+    return instance;
+  }
 
   async getAccessToken() {
     if (this.gettingAccessToken) return;
@@ -173,5 +180,4 @@ class IGDB {
   }
 }
 
-const igdb = new IGDB();
-export { igdb };
+export { IGDB };
