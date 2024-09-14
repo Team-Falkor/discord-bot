@@ -1,3 +1,4 @@
+import axios from "axios";
 import { defaultFields } from "./constants";
 import { ApiResponse, IGDBReturnDataType, InfoReturn } from "./types";
 
@@ -13,22 +14,35 @@ class IGDB {
 
   async getAccessToken() {
     if (this.gettingAccessToken) return;
-    if (this.clientAccessToken && Date.now() < this.tokenExpiration)
+    if (this.clientAccessToken && Date.now() < this.tokenExpiration) {
       return this.clientAccessToken;
+    }
 
     this.gettingAccessToken = true;
-    const response = await (
-      await fetch(
-        `https://id.twitch.tv/oauth2/token?client_id=${this.clientId}&client_secret=${this.clientSecret}&grant_type=client_credentials`,
-        { method: "POST" }
-      )
-    ).json();
 
-    console.log(`Getting a new access token`);
+    try {
+      const response = await axios.post(
+        `https://id.twitch.tv/oauth2/token`,
+        null, // Axios requires a body for POST, `null` is needed here
+        {
+          params: {
+            client_id: this.clientId,
+            client_secret: this.clientSecret,
+            grant_type: "client_credentials",
+          },
+        }
+      );
 
-    this.gettingAccessToken = false;
-    this.clientAccessToken = response.access_token;
-    this.tokenExpiration = Date.now() + response.expires_in * 1000; // Convert to milliseconds
+      console.log(`Getting a new access token`);
+
+      this.clientAccessToken = response.data.access_token;
+      this.tokenExpiration = Date.now() + response.data.expires_in * 1000; // Convert to milliseconds
+    } catch (error) {
+      console.error("Error fetching access token:", error);
+      throw new Error("Failed to fetch Twitch access token.");
+    } finally {
+      this.gettingAccessToken = false;
+    }
 
     return this.clientAccessToken;
   }
@@ -38,14 +52,8 @@ class IGDB {
     (await this.getAccessToken());
 
   async search(query: string): Promise<IGDBReturnDataType[]> {
-    let realQuery = query;
-    // const findEasterEgg = searchEasterEggs.find(
-    //   (egg) => egg.name === query.toLowerCase()
-    // );
-    // if (findEasterEgg) realQuery = findEasterEgg.query;
-
     const data = await this.request<IGDBReturnDataType[]>("games", {
-      search: realQuery,
+      search: query,
     });
 
     return data;
@@ -116,7 +124,6 @@ class IGDB {
     try {
       await this.checkAndRenewToken();
 
-      // Construct the request body
       let requestBody = "";
       const fields = options.fields || [];
       requestBody += `fields ${[...fields, ...defaultFields].join(",")};`;
@@ -134,44 +141,34 @@ class IGDB {
         requestBody += ` where ${options.where};`;
       }
 
-      // Add other options as needed
+      const response = await axios.post(
+        `https://api.igdb.com/v4/${reqUrl}`,
+        requestBody,
+        {
+          headers: {
+            "Client-ID": this.clientId,
+            Authorization: `Bearer ${this.clientAccessToken}`,
+            "Content-Type": "text/plain",
+          },
+        }
+      );
 
-      const res = await fetch(`https://api.igdb.com/v4/${reqUrl}`, {
-        method: "POST",
-        headers: {
-          "Client-ID": this.clientId,
-          Authorization: `Bearer ${this.clientAccessToken}`,
-        },
-        body: requestBody ? requestBody : undefined,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch: ${res.status}`);
-      }
-
-      const data: T = await res.json();
-
-      return data;
+      return response.data as T;
     } catch (error) {
-      console.log(error);
-      throw new Error((error as Error).message);
+      console.error("Error fetching data from IGDB:", error);
+      throw new Error(`Failed to fetch data: ${(error as Error).message}`);
     }
   }
 
   async steamStoreInfo(appid: string) {
     try {
       const url = `https://store.steampowered.com/api/appdetails/?appids=${appid}`;
-      const res = await fetch(url);
+      const response = await axios.get<ApiResponse>(url);
 
-      if (!res.ok) {
-        throw new Error(`Failed to fetch: ${res.status}`);
-      }
-
-      const data: ApiResponse = await res.json();
-
-      return data[appid];
+      return response.data[appid];
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching Steam store info:", error);
+      throw new Error("Failed to fetch Steam data.");
     }
   }
 }
