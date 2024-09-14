@@ -1,6 +1,7 @@
 import { config } from "dotenv";
-import { ClientClass } from "./structure/Client";
 config();
+
+import { ClientClass } from "./structure/Client";
 
 export const client = new ClientClass();
 
