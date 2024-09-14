@@ -5,11 +5,6 @@ import { ApiResponse, IGDBReturnDataType, InfoReturn } from "./types";
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
 
-console.log({
-  TWITCH_CLIENT_ID,
-  TWITCH_CLIENT_SECRET,
-});
-
 let instance: IGDB | null = null;
 
 class IGDB {
