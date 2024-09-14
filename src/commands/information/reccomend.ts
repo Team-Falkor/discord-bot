@@ -128,9 +128,12 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
         return;
       }
 
-      await confirmation.deferReply();
+      await confirmation.deferUpdate();
 
       await confirmation.followUp({
+        content: `${interaction.user} has suggested you to play ${
+          selectedGame.name ?? game
+        }`,
         embeds: [embed],
       });
     } catch (error) {
