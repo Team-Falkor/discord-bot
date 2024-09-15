@@ -9,6 +9,7 @@ const console = new Console();
 import { colors, Handler } from "../handler";
 import { config } from "../utils/config";
 import { IGDB } from "../utils/igdb";
+import { Cooldowns } from "./Cooldowns";
 import { ModLogs } from "./logs";
 
 export class ClientClass extends Client {
@@ -19,6 +20,7 @@ export class ClientClass extends Client {
 
   public igdb: IGDB = new IGDB();
   public modLogs = new ModLogs();
+  public cooldowns = new Cooldowns();
 
   constructor() {
     super(clientOptions);
@@ -34,6 +36,7 @@ export class ClientClass extends Client {
       commandsPath: path.join(__dirname, "..", "commands"),
       eventsPath: path.join(__dirname, "..", "events"),
       componentsPath: path.join(__dirname, "..", "components"),
+      validationsPath: path.join(__dirname, "..", "validations"),
     });
 
     const TOKEN =

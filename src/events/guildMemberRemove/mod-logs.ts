@@ -35,6 +35,5 @@ export default function (
     });
   } catch (error) {
     console.error(error);
-    throw new Error((error as Error).message);
   }
 }
