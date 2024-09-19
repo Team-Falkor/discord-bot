@@ -6,6 +6,9 @@ export default function ({
   commandObj,
   handler,
 }: ValidationProps) {
+  // check if interaction is a autocomplete
+  if (interaction.isAutocomplete()) return false;
+
   const cooldowns = handler.client.cooldowns;
 
   if (cooldowns.check(interaction.user.id)) {
