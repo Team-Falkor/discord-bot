@@ -3,6 +3,7 @@ import {
   type ClientOptions,
   GatewayIntentBits,
   Options,
+  Partials,
 } from "discord.js";
 
 export const clientOptions: ClientOptions = {
@@ -21,5 +22,6 @@ export const clientOptions: ClientOptions = {
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildEmojisAndStickers,
   ],
+  partials: [Partials.Reaction, Partials.Message, Partials.Message],
   makeCache: Options.cacheEverything(),
 };

@@ -1,5 +1,6 @@
 import {
   MessageReaction,
+  MessageReactionEventDetails,
   PartialMessageReaction,
   PartialUser,
   User,
@@ -9,6 +10,7 @@ import { ClientClass } from "../../structure/Client";
 export default async function (
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser,
+  _details: MessageReactionEventDetails,
   client: ClientClass
 ) {
   if (!reaction.message.guildId) return;
@@ -35,6 +37,7 @@ export default async function (
   try {
     await member?.roles.add(data.role);
   } catch (error) {
+    console.error(error);
     return;
   }
 }
