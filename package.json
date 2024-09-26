@@ -3,7 +3,7 @@
   "main": "./dist/index.js",
   "exports": "./dist/index.js",
   "scripts": {
-    "start": "cross-env NODE_ENV=production ts-node ./src/Bot.ts",
+    "start": "cross-env NODE_ENV=production npm run build && node dist/Bot.js",
     "dev": "cross-env NODE_ENV=development nodemon --config nodemon.json src/Bot.ts",
     "build": "tsc",
     "db:push": "prisma db push",
