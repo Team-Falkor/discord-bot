@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ComponentHandlerOptions } from "../../@types";
 
-var table = new AsciiTable3();
+let table = new AsciiTable3();
 table.setHeading("Buttons", "Stats");
 
 export class ComponentHandler {
@@ -40,6 +40,7 @@ export class ComponentHandler {
       }
     }
 
+    if (!table.rows.length) return;
     console.log(table.toString());
   }
 }
