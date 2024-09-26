@@ -35,7 +35,7 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
       {
         name: "Client Latency",
         value: `${
-          Date.now() - (new Date(interaction.createdTimestamp) as any)
+          Date.now() - new Date(interaction.createdTimestamp).getTime()
         }ms`,
         inline: true,
       },
