@@ -16,6 +16,9 @@ export class ComponentHandler {
   async init() {
     const allowedExtensions = /\.(js|mjs|cjs|ts)$/i;
 
+    // Check if the componentsPath exists, return if it doesn't
+    if (!fs.existsSync(this.#data.componentsPath)) return;
+
     const componentFolders = fs.readdirSync(this.#data.componentsPath);
 
     for (const folder of componentFolders) {
