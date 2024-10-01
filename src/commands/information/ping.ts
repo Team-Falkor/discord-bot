@@ -43,6 +43,11 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
         name: "Memory Usage",
         value: `${toFixedNumber(data.memoryUsage)}mb`,
         inline: true,
+      },
+      {
+        name: "CPU Usage",
+        value: `${toFixedNumber(data.cpuUsage)}%`,
+        inline: true,
       }
     )
     .setFooter({
