@@ -54,6 +54,13 @@ model level {
   level    Int    @default(0)
 }
 
+model ModerationChannel {
+  id         Int                       @id @unique @default(autoincrement())
+  guild_id   String                    @unique
+  channel_id String
+  settings   ModerationChannelSettings @relation(fields: [id], references: [id])
+}
+
 model ModerationChannelSettings {
   id                Int                @id @unique @default(autoincrement())
   deleted_message   Boolean            @default(true)
@@ -64,13 +71,6 @@ model ModerationChannelSettings {
   user_timeout      Boolean            @default(true)
   user_kick         Boolean            @default(true)
   ModerationChannel ModerationChannel?
-}
-
-model ModerationChannel {
-  id         Int                       @id @unique @default(autoincrement())
-  guild_id   String                    @unique
-  channel_id String
-  settings   ModerationChannelSettings @relation(fields: [id], references: [id])
 }
 
 model Reaction {
