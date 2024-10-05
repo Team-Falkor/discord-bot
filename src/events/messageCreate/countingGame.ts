@@ -7,6 +7,7 @@ import {
   TextChannel,
   ThreadChannel,
 } from "discord.js";
+import { parseStringToNumber } from "../../functions";
 import { ClientClass } from "../../structure/Client";
 
 export default async function handleCountingGame(
@@ -25,9 +26,10 @@ export default async function handleCountingGame(
 
   const guildId = message.guild.id;
   const db = client.db.counting_game;
+  const stringToNumber = parseStringToNumber(message.content);
 
   // Parse the message content to a number
-  const messageNumber = parseInt(message.content);
+  const messageNumber = stringToNumber ?? parseInt(message.content);
   if (isNaN(messageNumber)) return;
 
   // Fetch counting game data for the guild
