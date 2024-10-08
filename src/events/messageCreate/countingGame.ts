@@ -131,18 +131,31 @@ export default async function handleCountingGame(
   });
 
   if (!findUser) {
-    await client.db.guild_config
-      .create({
-        data: {
-          guild_id: guildId,
-          users: {
-            create: {
+    await client.db.guild_config.upsert({
+      where: {
+        guild_id: guildId,
+      },
+      create: {
+        guild_id: guildId,
+        users: {
+          create: {
+            user_id: message.author.id,
+          },
+        },
+      },
+      update: {
+        users: {
+          updateMany: {
+            data: {
+              counting_score: counting_score + 1,
+            },
+            where: {
               user_id: message.author.id,
             },
           },
         },
-      })
-      .catch(console.error);
+      },
+    });
   } else {
     await client.db.user
       .update({
