@@ -56,7 +56,38 @@ export default async function handleCountingGame(
   const isWrongCount =
     message.author.id === data.last_person_id || messageNumber !== data.count;
 
+  const guild_config = await client.db.guild_config.findUnique({
+    where: { guild_id: guildId },
+    select: {
+      users: true,
+    },
+  });
+
+  const findUser = guild_config?.users.find(
+    (u) => u.user_id === message.author?.id
+  );
+  let counting_score = 0;
+
+  if (findUser) counting_score = findUser.counting_score;
+
   if (isWrongCount) {
+    client.db.user.upsert({
+      where: {
+        id: findUser?.id,
+      },
+      create: {
+        user_id: message.author.id,
+        guild_config: {
+          create: {
+            guild_id: guildId,
+          },
+        },
+      },
+      update: {
+        counting_score: counting_score === 0 ? 0 : counting_score - 1,
+      },
+    });
+
     const responses = [
       "it's okay <USER>, let's try again!",
       "it's okay <USER>, try again!",
@@ -98,4 +129,30 @@ export default async function handleCountingGame(
       count: data.count + 1,
     },
   });
+
+  if (!findUser) {
+    await client.db.guild_config
+      .create({
+        data: {
+          guild_id: guildId,
+          users: {
+            create: {
+              user_id: message.author.id,
+            },
+          },
+        },
+      })
+      .catch(console.error);
+  } else {
+    await client.db.user
+      .update({
+        where: {
+          id: findUser.id,
+        },
+        data: {
+          counting_score: counting_score + 1,
+        },
+      })
+      .catch(console.error);
+  }
 }
