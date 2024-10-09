@@ -33,11 +33,8 @@ export default async function handleCountingGame(
   if (isNaN(messageNumber)) return;
 
   // Fetch counting game data for the guild
-  const data = await db.findFirst({ where: { guild_id: guildId } });
-  if (!data) return;
-
-  // Ensure the message is in the correct channel
-  if (message.channel.id !== data.channel_id) return;
+  const gameData = await db.findFirst({ where: { guild_id: guildId } });
+  if (!gameData || message.channel.id !== gameData.channel_id) return;
 
   // Verify the channel supports sending messages
   if (
@@ -54,39 +51,56 @@ export default async function handleCountingGame(
 
   // Check if the user repeated or the number is wrong
   const isWrongCount =
-    message.author.id === data.last_person_id || messageNumber !== data.count;
+    message.author.id === gameData.last_person_id ||
+    messageNumber !== gameData.count;
 
-  const guild_config = await client.db.guild_config.findUnique({
+  let guildConfig = await client.db.guild_config.findUnique({
     where: { guild_id: guildId },
-    select: {
-      users: true,
-    },
+    select: { users: true, id: true },
   });
 
-  const findUser = guild_config?.users.find(
+  if (!guildConfig) {
+    guildConfig = await client.db.guild_config.create({
+      data: {
+        guild_id: guildId,
+      },
+      select: { users: true, id: true },
+    });
+  }
+
+  const userRecord = guildConfig?.users.find(
     (u) => u.user_id === message.author?.id
   );
-  let counting_score = 0;
 
-  if (findUser) counting_score = findUser.counting_score;
+  const currentScore = userRecord ? userRecord.counting_score : 0;
 
+  // Handle wrong count scenario
   if (isWrongCount) {
-    client.db.user.upsert({
-      where: {
-        id: findUser?.id,
-      },
-      create: {
-        user_id: message.author.id,
-        guild_config: {
-          create: {
-            guild_id: guildId,
+    if (!userRecord) {
+      await client.db.guild_config.update({
+        where: { guild_id: guildId },
+        data: {
+          users: {
+            create: {
+              user_id: message.author.id,
+              counting_score: 0,
+            },
           },
         },
-      },
-      update: {
-        counting_score: counting_score === 0 ? 0 : counting_score - 1,
-      },
-    });
+      });
+    } else {
+      await client.db.user.updateMany({
+        where: {
+          guild_config: {
+            guild_id: guildId,
+          },
+          user_id: message.author.id,
+        },
+        data: {
+          counting_score: currentScore - 1,
+        },
+      });
+    }
 
     const responses = [
       "it's okay <USER>, let's try again!",
@@ -94,13 +108,14 @@ export default async function handleCountingGame(
       "it's okay <USER>, try harder!",
       "The count is wrong <USER>, try again!",
     ];
+
     const randomResponse = responses[
       Math.floor(Math.random() * responses.length)
     ].replace("<USER>", `<@${message.author.id}>`);
 
     // Reset the game and notify the user
     await db.updateMany({
-      where: { guild_id: guildId, channel_id: data.channel_id },
+      where: { guild_id: guildId, channel_id: gameData.channel_id },
       data: { last_person_id: "", count: 1 },
     });
 
@@ -123,51 +138,30 @@ export default async function handleCountingGame(
 
   // Update the game state in the database
   await db.updateMany({
-    where: { guild_id: guildId, channel_id: data.channel_id },
+    where: { guild_id: guildId, channel_id: gameData.channel_id },
     data: {
       last_person_id: message.author.id,
-      count: data.count + 1,
+      count: {
+        increment: 1,
+      },
     },
   });
 
-  if (!findUser) {
-    await client.db.guild_config
-      .upsert({
-        where: {
-          guild_id: guildId,
-        },
-        create: {
-          guild_id: guildId,
-          users: {
-            create: {
-              user_id: message.author.id,
-            },
-          },
-        },
-        update: {
-          users: {
-            updateMany: {
-              data: {
-                counting_score: counting_score + 1,
-              },
-              where: {
-                user_id: message.author.id,
-              },
-            },
-          },
-        },
-      })
-      .catch(console.error);
+  if (!userRecord) {
+    await client.db.user.create({
+      data: {
+        user_id: message.author.id,
+      },
+    });
   } else {
-    await client.db.user
-      .update({
-        where: {
-          id: findUser.id,
+    await client.db.user.update({
+      where: { id: userRecord.id },
+      data: {
+        counting_score: {
+          increment: 1,
         },
-        data: {
-          counting_score: counting_score + 1,
-        },
-      })
-      .catch(console.error);
+      },
+    });
   }
+  return;
 }
