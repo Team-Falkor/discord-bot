@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 import { parseStringToNumber } from "../../functions";
 import { ClientClass } from "../../structure/Client";
+import { constants } from "../../utils";
 
 export default async function handleCountingGame(
   message: Message | PartialMessage,
@@ -102,12 +103,7 @@ export default async function handleCountingGame(
       });
     }
 
-    const responses = [
-      "it's okay <USER>, let's try again!",
-      "it's okay <USER>, try again!",
-      "it's okay <USER>, try harder!",
-      "The count is wrong <USER>, try again!",
-    ];
+    const responses = constants.counting_game.responses;
 
     const randomResponse = responses[
       Math.floor(Math.random() * responses.length)
