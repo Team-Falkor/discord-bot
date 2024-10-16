@@ -124,7 +124,7 @@ const safeEval = (expression: string): number | null => {
     const result = evaluate(expression); // Safely evaluates the expression using mathjs
     return typeof result === "number" && isFinite(result) ? result : null;
   } catch (error) {
-    console.log("Math evaluation error:", error);
+    console.log(`error evaluation math: `, error);
     return null;
   }
 };
@@ -143,17 +143,17 @@ export const parseStringToNumber = (input: string): number | null => {
     return romanToNumber(cleanedInput);
   }
 
-  // Preprocess the string to replace superscripts before evaluating math expressions
-  const inputWithSuperscriptsReplaced = replaceSuperscripts(cleanedInput);
-
-  // Check if the string is a math equation and evaluate it using safeEval
-  if (/^[0-9+\-*/.()\s]*$/.test(inputWithSuperscriptsReplaced)) {
-    return safeEval(inputWithSuperscriptsReplaced);
-  }
-
   // Check if the string is a number in words
   if (/^[a-z\s-]+$/.test(cleanedInput)) {
     return wordsToNumber(cleanedInput);
+  }
+
+  // Preprocess the string to replace superscripts before evaluating math expressions
+  const inputWithSuperscriptsReplaced = replaceSuperscripts(cleanedInput);
+  const evaled = safeEval(inputWithSuperscriptsReplaced);
+
+  if (evaled) {
+    return evaled;
   }
 
   return null; // Return null for invalid inputs
