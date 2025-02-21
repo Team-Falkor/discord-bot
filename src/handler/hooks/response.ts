@@ -3,6 +3,7 @@
 import type {
   ChatInputCommandInteraction,
   MessageComponentInteraction,
+  MessagePayload,
   PartialTextBasedChannelFields,
 } from "discord.js";
 import { HandlerInteraction } from "../handlers/command/types";
@@ -14,7 +15,7 @@ type MessageData =
   | Parameters<PartialTextBasedChannelFields["send"]>[0]
   | ChatInputReplyData;
 
-export async function response(data: MessageData) {
+export async function response(data: MessagePayload) {
   const interaction = useInteraction() as
     | HandlerInteraction
     | MessageComponentInteraction;

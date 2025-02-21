@@ -26,6 +26,7 @@ model User {
   id             String @id @default(uuid())
   user_id        String
   counting_score Int    @default(0)
+  warnings       Int    @default(0)
 
   guild_config   guild_config? @relation(fields: [guild_configId], references: [id])
   guild_configId Int?
