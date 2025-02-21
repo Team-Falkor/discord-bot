@@ -1,19 +1,14 @@
 import { Client } from "discord.js";
+import osu from "node-os-utils";
 
-export const pingStats = (client: Client) => {
-  const ping = client.ws.ping;
-  const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
-  const uptiime = client.uptime;
-
-  const cpuUsage = () => {
-    const cpu = process.cpuUsage();
-    return (cpu.user + cpu.system) / 1000000;
-  };
+export const getPingStats = async (client: Client) => {
+  const cpuUsage = await osu.cpu.usage();
 
   return {
-    apiLatency: ping,
-    memoryUsage: memoryUsage,
-    uptime: uptiime,
-    cpuUsage: cpuUsage(),
+    apiLatency: Math.max(client.ws.ping, 0),
+    memoryUsage:
+      Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
+    uptime: client.uptime ?? 0,
+    cpuUsage: cpuUsage ?? 0,
   };
 };
