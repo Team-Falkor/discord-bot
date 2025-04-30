@@ -15,30 +15,11 @@ export default async function handleCountingGame(
   message: Message | PartialMessage,
   client: ClientClass
 ) {
-  // Early return if the message is not in a guild
+  // Guards: must be in a guild, have content, non-bot author, and a supported channel
   if (
     !message.guild ||
     !message.content ||
-    !message.author ||
-    message.author.bot
-  ) {
-    return;
-  }
-
-  const guildId = message.guild.id;
-  const db = client.db.counting_game;
-  const stringToNumber = parseStringToNumber(message.content);
-
-  // Parse the message content to a number
-  const messageNumber = stringToNumber ?? parseInt(message.content);
-  if (isNaN(messageNumber)) return;
-
-  // Fetch counting game data for the guild
-  const gameData = await db.findFirst({ where: { guild_id: guildId } });
-  if (!gameData || message.channel.id !== gameData.channel_id) return;
-
-  // Verify the channel supports sending messages
-  if (
+    message.author?.bot ||
     !(
       message.channel instanceof TextChannel ||
       message.channel instanceof DMChannel ||
@@ -46,113 +27,106 @@ export default async function handleCountingGame(
       message.channel instanceof ThreadChannel
     )
   ) {
-    console.error("Unsupported channel type for sending messages.");
     return;
   }
 
-  // Check if the user repeated or the number is wrong
-  const isWrongCount =
-    message.author.id === gameData.last_person_id ||
-    messageNumber !== gameData.count;
+  const author = message.author;
+  if (!author) return;
 
-  let guildConfig = await client.db.guild_config.findUnique({
-    where: { guild_id: guildId },
-    select: { users: true, id: true },
+  const guildId = message.guild.id;
+  const channelId = message.channel.id;
+  const discordUserId = author.id;
+
+  const countingDb = client.db.countingGame;
+
+  // Parse the number from the message
+  const parsed = parseStringToNumber(message.content);
+  const messageNumber = parsed ?? Number.parseInt(message.content, 10);
+  if (Number.isNaN(messageNumber)) return;
+
+  // Load the counting‐game config for this channel
+  const gameData = await countingDb.findUnique({ where: { channelId } });
+  if (!gameData) return;
+
+  // Load the user's score record (if any)
+  let userRecord = await client.db.user.findFirst({
+    where: { discordId: discordUserId, guildId },
   });
 
-  if (!guildConfig) {
-    guildConfig = await client.db.guild_config.create({
-      data: {
-        guild_id: guildId,
-      },
-      select: { users: true, id: true },
-    });
-  }
+  // Determine if this is a wrong count:
+  // - number is wrong, OR
+  // - same user as last time (compare Prisma user.id)
+  const sameUser =
+    userRecord !== null && gameData.lastPersonId === userRecord.id;
+  const wrongNumber = messageNumber !== gameData.count;
+  const wrongCount = sameUser || wrongNumber;
 
-  let userRecord = guildConfig?.users.find(
-    (u) => u.user_id === message.author?.id
-  );
-
-  // Handle wrong count scenario
-  if (isWrongCount) {
+  if (wrongCount) {
+    // Decrement or initialize at -1
     if (!userRecord) {
-      // Create user with score -1 for wrong count
       await client.db.user.create({
         data: {
-          user_id: message.author.id,
-          counting_score: -1,
-          guild_configId: guildConfig.id,
+          discordId: discordUserId,
+          guildId,
+          countingScore: -1,
         },
       });
     } else {
       await client.db.user.update({
         where: { id: userRecord.id },
-        data: {
-          counting_score: {
-            decrement: 1,
-          },
-        },
+        data: { countingScore: { decrement: 1 } },
       });
     }
 
-    const responses = constants.counting_game.responses;
-
-    const randomResponse = responses[
-      Math.floor(Math.random() * responses.length)
-    ].replace("<USER>", `<@${message.author.id}>`);
-
-    // Reset the game and notify the user
-    await db.updateMany({
-      where: { guild_id: guildId, channel_id: gameData.channel_id },
-      data: { last_person_id: "", count: 1 },
+    // Reset the game back to 1, clear lastPersonId
+    await countingDb.update({
+      where: { channelId },
+      data: { lastPersonId: null, count: 1 },
     });
+
+    // Send a random “wrong answer” response
+    const responses = constants.counting_game.responses;
+    const random = responses[
+      Math.floor(Math.random() * responses.length)
+    ].replace("<USER>", `<@${discordUserId}>`);
 
     const embed = new EmbedBuilder()
       .setTitle(`Counting | ${message.guild.name}`)
       .setColor("Red")
-      .setDescription(randomResponse)
+      .setDescription(random)
       .setTimestamp();
 
-    const msg = await message.channel.send({ embeds: [embed] });
-    await msg.react("😡");
+    const reply = await message.channel.send({ embeds: [embed] });
+    await reply.react("😡");
     await message.react("❌");
-
     return;
   }
 
-  // React with 💯 for 100 or ✅ for other correct numbers
-  const reaction = messageNumber === 100 ? "💯" : "✅";
-  await message.react(reaction);
+  // ✅ Correct count: react first
+  await message.react(messageNumber === 100 ? "💯" : "✅");
 
-  // Update the game state in the database
-  await db.updateMany({
-    where: { guild_id: guildId, channel_id: gameData.channel_id },
-    data: {
-      last_person_id: message.author.id,
-      count: {
-        increment: 1,
-      },
-    },
-  });
-
-  // Update or create user record for correct count
+  // Ensure the userRecord exists and get its Prisma UUID id
   if (!userRecord) {
-    await client.db.user.create({
+    userRecord = await client.db.user.create({
       data: {
-        user_id: message.author.id,
-        counting_score: 1,
-        guild_configId: guildConfig.id,
+        discordId: discordUserId,
+        guildId,
+        countingScore: 1,
       },
     });
   } else {
-    await client.db.user.update({
+    userRecord = await client.db.user.update({
       where: { id: userRecord.id },
-      data: {
-        counting_score: {
-          increment: 1,
-        },
-      },
+      data: { countingScore: { increment: 1 } },
     });
   }
-  return;
+
+  // Advance the game state with the Prisma user.id
+  await countingDb.update({
+    where: { channelId },
+    data: {
+      lastPersonId: userRecord.id,
+      count: { increment: 1 },
+    },
+  });
 }

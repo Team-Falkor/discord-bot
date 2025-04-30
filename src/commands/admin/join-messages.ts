@@ -1,10 +1,9 @@
-import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
-
 import { ApplicationCommandOptionType } from "discord.js";
+import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "join_messages",
-  description: "Setup join messages.",
+  description: "Set up join messages.",
   options: [
     {
       name: "channel",
@@ -15,60 +14,45 @@ export const data: CommandData = {
   ],
 };
 
-export async function run({ interaction, client, handler }: SlashCommandProps) {
-  const channelSettingsDB = client.db.channelSettings;
-  const configDB = client.db.guild_config;
-
-  if (!interaction.guild) {
-    return await interaction.reply({
-      content: "This command can only be used in a server",
-      ephemeral: true,
-    });
-  }
-
-  const config = await configDB.findFirst({
-    where: {
-      guild_id: interaction.guild.id,
-    },
-  });
-
-  if (!config) {
-    return await interaction.reply({
-      content: "There is no config for this server",
+export async function run({ interaction, client }: SlashCommandProps) {
+  const { guild } = interaction;
+  if (!guild) {
+    return interaction.reply({
+      content: "This command can only be used in a server.",
       ephemeral: true,
     });
   }
 
   const channel = interaction.options.getChannel("channel", true);
+  const config = await client.db.guildConfig.findFirst({
+    where: { guildId: guild.id },
+  });
 
-  await channelSettingsDB.upsert({
-    where: {
-      guid_id: interaction.guild.id,
-    },
+  if (!config) {
+    return interaction.reply({
+      content: "There’s no config for this server.",
+      ephemeral: true,
+    });
+  }
+
+  await client.db.channelSettings.upsert({
+    where: { guildId: guild.id },
     create: {
-      guid_id: interaction.guild.id,
-      join_messages: channel.id,
+      guildId: guild.id,
+      channelIdMembers: channel.id,
     },
     update: {
-      join_messages: channel.id,
+      channelIdMembers: channel.id,
     },
   });
 
-  await configDB.upsert({
-    where: {
-      guild_id: interaction.guild.id,
-    },
-    create: {
-      guild_id: interaction.guild.id,
-      join_messages: true,
-    },
-    update: {
-      join_messages: true,
-    },
+  await client.db.guildConfig.update({
+    where: { guildId: guild.id },
+    data: { joinMessages: true },
   });
 
-  await interaction.reply({
-    content: `Join messages set to ${channel}`,
+  return interaction.reply({
+    content: `Join messages will now be sent to ${channel}.`,
     ephemeral: true,
   });
 }

@@ -18,7 +18,7 @@ export default function (
 
     const modLogs = client.modLogs.get(member.guild.id);
     if (!modLogs) return;
-    if (!modLogs.settings?.user_left) return;
+    if (!modLogs.settings?.userLeft) return;
 
     const embed = new EmbedBuilder()
       .setColor("Red")

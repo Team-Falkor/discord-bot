@@ -3,21 +3,17 @@ import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "cleaderboard",
-  description: "check the leaderboard for the counting system",
+  description: "Check the leaderboard for the counting system",
 };
 
 export async function run({ interaction, client, handler }: SlashCommandProps) {
   try {
-    const db = client.db.user;
-
-    const data = await db.findMany({
+    const data = await client.db.user.findMany({
       where: {
-        guild_config: {
-          guild_id: interaction.guildId!,
-        },
+        guildId: interaction.guildId!,
       },
       orderBy: {
-        counting_score: "desc",
+        countingScore: "desc",
       },
       take: 10,
     });
@@ -29,28 +25,30 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
       .setTimestamp();
 
     if (data.length === 0) {
-      embed.setDescription("No one has counted yet");
+      embed.setDescription("No one has counted yet.");
     } else {
-      // Fetch all users, fallback to API if not cached
       for (let i = 0; i < data.length; i++) {
         const userData = data[i];
         let username = "Unknown User";
         let userTag = "";
-        let userObj = client.users.cache.get(userData.user_id);
+        let userObj = client.users.cache.get(userData.discordId);
+
         if (!userObj) {
           try {
-            userObj = await client.users.fetch(userData.user_id);
+            userObj = await client.users.fetch(userData.discordId);
           } catch (e) {
             // Ignore fetch error, keep username as Unknown User
           }
         }
+
         if (userObj) {
           username = userObj.username;
           userTag = userObj.tag;
         }
+
         embed.addFields({
           name: `${i + 1}. ${username}`,
-          value: `Score: ${userData.counting_score}${
+          value: `Score: ${userData.countingScore}${
             userTag ? `\nTag: ${userTag}` : ""
           }`,
           inline: false,
@@ -67,6 +65,7 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
         "⛔ Something went wrong while fetching the leaderboard. Please try again later."
       )
       .setTimestamp();
+
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ embeds: [errEmbed], ephemeral: true });
     } else {

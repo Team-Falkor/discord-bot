@@ -23,8 +23,8 @@ export default async function (
 
   const data = await db.findFirst({
     where: {
-      guild_id: reaction.message.guild!.id,
-      message_id: reaction.message.id,
+      guildId: reaction.message.guild!.id,
+      messageId: reaction.message.id,
       emoji: cID,
     },
   });

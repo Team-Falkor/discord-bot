@@ -1,19 +1,18 @@
-import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
-
 import { ApplicationCommandOptionType, EmbedBuilder } from "discord.js";
+import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "autojoinrole",
-  description: "auto join role giver",
+  description: "Auto join role giver",
   options: [
     {
       name: "add",
-      description: "Add a auto join role to the server",
+      description: "Add an auto join role to the server",
       type: ApplicationCommandOptionType.Subcommand,
       options: [
         {
           name: "role",
-          description: "the role to add",
+          description: "The role to add",
           required: true,
           type: ApplicationCommandOptionType.Role,
         },
@@ -21,12 +20,12 @@ export const data: CommandData = {
     },
     {
       name: "remove",
-      description: "Remove a auto join role to the server",
+      description: "Remove an auto join role from the server",
       type: ApplicationCommandOptionType.Subcommand,
       options: [
         {
           name: "role",
-          description: "the role to remove",
+          description: "The role to remove",
           required: true,
           type: ApplicationCommandOptionType.Role,
         },
@@ -35,7 +34,7 @@ export const data: CommandData = {
   ],
 };
 
-export async function run({ interaction, client, handler }: SlashCommandProps) {
+export async function run({ interaction, client }: SlashCommandProps) {
   const db = client.db.autoJoinRoles;
 
   const { options, guild } = interaction;
@@ -44,70 +43,78 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
 
   if (!guild) return;
 
-  const data = await db.findFirst({
+  // Ensure the Guild exists in DB
+  await client.db.guild.upsert({
+    where: { id: guild.id },
+    update: {},
+    create: {
+      id: guild.id,
+      name: guild.name,
+    },
+  });
+
+  const existingRole = await db.findFirst({
     where: {
-      guild_id: guild.id,
+      guildId: guild.id,
       role: role?.id!,
     },
   });
 
   switch (sub) {
     case "add":
-      if (data) {
+      if (existingRole) {
         return await interaction.reply({
-          content: `it looks like you already have this auto join role setup`,
+          content: `That role is already configured as an auto join role.`,
           ephemeral: true,
         });
       }
 
       await db.create({
         data: {
-          guild_id: guild.id,
+          guildId: guild.id,
           role: role!.id,
         },
       });
 
-      const addEmbed = new EmbedBuilder()
-        .setTitle("Auto Join Role Added")
-        .setColor("Random")
-        .setDescription(
-          `I have added a auto join role to ${guild} with ${role}`
-        )
-        .setTimestamp();
-
       await interaction.reply({
-        embeds: [addEmbed],
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("Auto Join Role Added")
+            .setColor("Random")
+            .setDescription(`Added auto join role ${role} to ${guild}.`)
+            .setTimestamp(),
+        ],
         ephemeral: true,
       });
 
       break;
+
     case "remove":
-      if (!data) {
+      if (!existingRole) {
         return await interaction.reply({
-          content: `it doesnt look like that reaction role exists`,
+          content: `That role isn't configured as an auto join role.`,
           ephemeral: true,
         });
       }
 
       await db.deleteMany({
         where: {
-          guild_id: guild.id,
+          guildId: guild.id,
           role: role!.id,
         },
       });
 
-      const removeEmbed = new EmbedBuilder()
-        .setTitle("Auto Join Role Removed")
-        .setColor("Random")
-        .setDescription(`I have removed a join role to ${guild} with ${role}`)
-        .setTimestamp();
-
       await interaction.reply({
-        embeds: [removeEmbed],
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("Auto Join Role Removed")
+            .setColor("Random")
+            .setDescription(`Removed auto join role ${role} from ${guild}.`)
+            .setTimestamp(),
+        ],
         ephemeral: true,
       });
-      break;
-    default:
+
       break;
   }
 }

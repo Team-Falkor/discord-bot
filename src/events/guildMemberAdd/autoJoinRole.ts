@@ -8,7 +8,7 @@ export default async function (member: GuildMember, client: ClientClass) {
 
   const data = await db.findMany({
     where: {
-      guild_id: member.guild.id,
+      guildId: member.guild.id,
     },
   });
 

@@ -47,57 +47,66 @@ export async function run({ interaction, client }: SlashCommandProps) {
     const moderator = interaction.member as GuildMember;
     const guildId = interaction.guild?.id;
 
-    if (!guildId)
+    if (!guildId) {
       return interaction.editReply({
         content: "❌ This command must be used in a server.",
       });
-    if (user.id === interaction.user.id)
+    }
+    if (user.id === interaction.user.id) {
       return interaction.editReply({ content: "❌ You cannot warn yourself." });
-    if (interaction.guild?.ownerId === user.id)
+    }
+    if (interaction.guild.ownerId === user.id) {
       return interaction.editReply({
         content: "❌ You cannot warn the server owner.",
       });
+    }
 
-    // Fetch or create user warning data
+    // 1️⃣ Find existing user warning record
     const existingUser = await client.db.user.findFirst({
-      where: { user_id: user.id, guild_config: { guild_id: guildId } },
+      where: { discordId: user.id, guildId },
     });
 
-    const updatedWarnings = existingUser ? existingUser.warnings + 1 : 1;
+    const newWarningCount = (existingUser?.warnings ?? 0) + 1;
 
-    await client.db.user.upsert({
-      where: { id: existingUser?.id || "" },
-      update: { warnings: updatedWarnings },
-      create: {
-        user_id: user.id,
-        warnings: updatedWarnings,
-        guild_config: {
-          connectOrCreate: {
-            where: { guild_id: guildId },
-            create: { guild_id: guildId },
-          },
+    // 2️⃣ Update or create the user record
+    if (existingUser) {
+      await client.db.user.update({
+        where: { id: existingUser.id },
+        data: { warnings: newWarningCount },
+      });
+    } else {
+      await client.db.user.create({
+        data: {
+          discordId: user.id,
+          guildId,
+          warnings: newWarningCount,
+          countingScore: 0,
         },
-      },
-    });
+      });
+    }
 
+    // 3️⃣ Build the embed
+    const isBan = newWarningCount >= MAX_WARNINGS;
     const embed = new EmbedBuilder()
-      .setTitle(
-        updatedWarnings >= MAX_WARNINGS ? "❌ User Banned" : "⚠️ User Warned"
-      )
-      .setColor(updatedWarnings >= MAX_WARNINGS ? "Red" : "Yellow")
+      .setTitle(isBan ? "❌ User Banned" : "⚠️ User Warned")
+      .setColor(isBan ? "Red" : "Yellow")
       .setDescription(
-        `**User:** ${user}\n**Moderator:** ${moderator}\n**Reason:** ${reason}\n**Total Warnings:** ${updatedWarnings}/${MAX_WARNINGS}`
+        `**User:** ${user}\n` +
+          `**Moderator:** ${moderator}\n` +
+          `**Reason:** ${reason}\n` +
+          `**Total Warnings:** ${newWarningCount}/${MAX_WARNINGS}`
       )
       .setFooter({
-        text: `${
-          updatedWarnings >= MAX_WARNINGS ? "Banned" : "Warned"
-        } at ${dayjs().format("YYYY-MM-DD HH:mm:ss")}`,
-      });
+        text: `${isBan ? "Banned" : "Warned"} at ${dayjs().format(
+          "YYYY-MM-DD HH:mm:ss"
+        )}`,
+      })
+      .setTimestamp();
 
-    // Auto-ban if warnings exceed max limit
-    if (updatedWarnings >= MAX_WARNINGS) {
+    // 4️⃣ Auto-ban if needed
+    if (isBan) {
       try {
-        await interaction.guild?.members.ban(user, {
+        await interaction.guild.members.ban(user, {
           reason: `Reached ${MAX_WARNINGS} warnings.`,
         });
       } catch (banError) {
@@ -106,34 +115,38 @@ export async function run({ interaction, client }: SlashCommandProps) {
           .setTitle("⚠️ Failed to Ban User")
           .setColor("Orange")
           .setDescription(
-            `**User:** ${user}\n**Moderator:** ${moderator}\n**Reason:** Could not ban due to missing permissions.`
+            `**User:** ${user}\n` +
+              `**Moderator:** ${moderator}\n` +
+              `**Reason:** Could not ban (missing permissions).`
           );
       }
     }
 
-    await interaction.editReply({ embeds: [embed] });
-
-    // Log the action using client.modLogs
+    // 5️⃣ Send the result to the mod-log channel if enabled
     const guildSettings = client.modLogs.get(guildId);
-    const logChannel = guildSettings?.settings.user_timeout
-      ? (interaction.guild?.channels.cache.get(
-          guildSettings.channelId
-        ) as TextChannel)
-      : null;
+    const shouldLog = guildSettings?.settings.userTimeout;
+    const logChannel = shouldLog
+      ? (interaction.guild.channels.cache.get(guildSettings.channelId) as
+          | TextChannel
+          | undefined)
+      : undefined;
+
+    await interaction.editReply({ embeds: [embed] });
 
     if (logChannel?.isTextBased()) {
       await logChannel.send({ embeds: [embed] });
     }
   } catch (error) {
     console.error("Error executing warn command:", error);
-    const errorMessage = "❌ An error occurred while executing this command.";
-
-    interaction.replied || interaction.deferred
-      ? interaction.editReply({ content: errorMessage })
-      : interaction.reply({
-          content: errorMessage,
-          flags: MessageFlags.Ephemeral,
-        });
+    const errMsg = "❌ An error occurred while executing this command.";
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content: errMsg });
+    } else {
+      await interaction.reply({
+        content: errMsg,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   }
 }
 

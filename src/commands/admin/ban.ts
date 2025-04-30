@@ -38,14 +38,25 @@ export const data: CommandData = {
 export async function run({ interaction, client, handler }: SlashCommandProps) {
   const user = interaction.options.getUser("user", true);
   const reason = interaction.options.getString("reason", false);
+
+  if (!interaction.guild) return;
+
+  // Ensure the Guild exists in DB
+  await client.db.guild.upsert({
+    where: { id: interaction.guild.id },
+    update: {},
+    create: {
+      id: interaction.guild.id,
+      name: interaction.guild.name,
+    },
+  });
+
   try {
     user.send(
-      `You have been banned from ${interaction.guild?.name} for ${
+      `You have been banned from ${interaction.guild.name} for ${
         reason || "No reason provided"
       }.`
     );
-
-    if (!interaction.guild) return;
 
     await interaction.guild.members.ban(user, {
       reason: reason || "No reason provided",

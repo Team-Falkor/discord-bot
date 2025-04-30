@@ -3,16 +3,16 @@ import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "modlogs",
-  description: "Setup mod logs.",
+  description: "Setup and configure moderation logs",
   options: [
     {
       name: "setup",
-      description: "setup mod logs",
+      description: "Set the channel for moderation logs",
       type: ApplicationCommandOptionType.Subcommand,
       options: [
         {
           name: "channel",
-          description: "The channel to send mod logs to.",
+          description: "The channel to send mod logs to",
           type: ApplicationCommandOptionType.Channel,
           required: true,
         },
@@ -20,42 +20,42 @@ export const data: CommandData = {
     },
     {
       name: "settings",
-      description: "mod logs settings",
+      description: "Enable or disable specific mod-log events",
       type: ApplicationCommandOptionType.Subcommand,
       options: [
         {
           name: "channel",
-          description: "The channel to send mod logs to.",
+          description: "Optionally change the mod-logs channel",
           type: ApplicationCommandOptionType.Channel,
           required: false,
         },
         {
           name: "deleted_messages",
-          description: "Enable/Disable User Join",
+          description: "Log deleted messages",
           type: ApplicationCommandOptionType.Boolean,
           required: false,
         },
         {
           name: "edited_messages",
-          description: "Enable/Disable Edited Messages",
+          description: "Log edited messages",
           type: ApplicationCommandOptionType.Boolean,
           required: false,
         },
         {
           name: "user_leave",
-          description: "Enable/Disable User Leave",
+          description: "Log when users leave",
           type: ApplicationCommandOptionType.Boolean,
           required: false,
         },
         {
           name: "user_join",
-          description: "Enable/Disable User Join",
+          description: "Log when users join",
           type: ApplicationCommandOptionType.Boolean,
           required: false,
         },
         {
           name: "user_ban",
-          description: "Enable/Disable User Ban",
+          description: "Log when users are banned",
           type: ApplicationCommandOptionType.Boolean,
           required: false,
         },
@@ -65,137 +65,122 @@ export const data: CommandData = {
 };
 
 export async function run({ interaction, client }: SlashCommandProps) {
-  const db = client.db;
   const guildId = interaction.guild?.id;
-  const subcommand = interaction.options.getSubcommand();
-
-  // Early return if guildId is missing (defensive check)
   if (!guildId) {
     return interaction.reply({
-      content: "Guild not found.",
+      content: "This command must be used in a server.",
       ephemeral: true,
     });
   }
 
-  switch (subcommand) {
-    case "settings":
-      const deletedMessages =
-        interaction.options.getBoolean("deleted_messages") ?? undefined;
-      const editedMessages =
-        interaction.options.getBoolean("edited_messages") ?? undefined;
-      const userLeave =
-        interaction.options.getBoolean("user_leave") ?? undefined;
-      const userJoin = interaction.options.getBoolean("user_join") ?? undefined;
-      const userBan = interaction.options.getBoolean("user_ban") ?? undefined;
-      const settingsChannel = interaction.options.getChannel("channel", false);
+  const { moderationChannel, moderationChannelSettings } = client.db;
+  const sub = interaction.options.getSubcommand();
 
-      const modChannel = await db.moderationChannel.findFirst({
-        where: { guild_id: guildId },
-        select: { id: true, settings: true, channel_id: true, guild_id: true },
+  if (sub === "setup") {
+    const channel = interaction.options.getChannel("channel", true);
+    const existing = await moderationChannel.findUnique({ where: { guildId } });
+
+    if (existing) {
+      await moderationChannel.update({
+        where: { guildId },
+        data: { channelId: channel.id },
       });
 
-      if (!modChannel) {
-        if (!settingsChannel) {
-          return interaction.reply({
-            content:
-              "No mod logs channel set. therefore the channel option is required",
-            ephemeral: true,
-          });
-        }
+      client.modLogs.get(guildId)!.channelId = channel.id;
 
-        return interaction.reply({
-          content: "No mod logs channel set.",
-          ephemeral: true,
-        });
-      }
-
-      // Upsert the mod logs settings
-      const modLogSettings = await db.moderationChannelSettings.upsert({
-        where: {
-          id: modChannel.settings.id,
-        },
-        create: {
-          deleted_message: deletedMessages,
-          edited_message: editedMessages,
-          user_join: userJoin,
-          user_left: userLeave,
-          user_ban: userBan,
-          ModerationChannel: {
-            create: {
-              channel_id: modChannel.channel_id,
-              guild_id: modChannel.guild_id,
-            },
-          },
-        },
-        update: {
-          deleted_message: deletedMessages,
-          edited_message: editedMessages,
-          user_join: userJoin,
-          user_left: userLeave,
-          user_ban: userBan,
-        },
-      });
-
-      // Update the client modLogs cache
-      client.modLogs.set(guildId, {
-        channelId: modChannel.channel_id,
-        settings: modLogSettings,
-      });
-
-      // Send success reply
-      return await interaction.reply({
-        content: "Successfully updated mod logs settings.",
-        ephemeral: true,
-      });
-    case "setup":
-      const channel = interaction.options.getChannel("channel", true);
-
-      // Check if the channel is already set for mod logs
-      const existingLog = await db.moderationChannel.findFirst({
-        where: { guild_id: guildId },
-      });
-
-      if (existingLog?.channel_id === channel.id) {
-        return interaction.reply({
-          content: "This channel is already set as the mod logs channel.",
-          ephemeral: true,
-        });
-      }
-
-      // Upsert the mod logs channel and settings
-      const modLogData = await db.moderationChannel.upsert({
-        where: { guild_id: guildId },
-        create: {
-          guild_id: guildId,
-          channel_id: channel.id,
-          settings: { create: {} },
-        },
-        update: { channel_id: channel.id },
-        select: {
-          channel_id: true,
-          settings: true,
-        },
-      });
-
-      // Update the client modLogs cache
-      client.modLogs.set(guildId, {
-        channelId: modLogData.channel_id,
-        settings: modLogData.settings,
-      });
-
-      // Send success reply
       return interaction.reply({
-        content: "Successfully set mod logs channel.",
+        content: `Mod-logs channel updated to ${channel}.`,
         ephemeral: true,
       });
-    default:
-      break;
+    }
+
+    const settings = await moderationChannelSettings.create({
+      data: { moderationChannelId: -1 },
+    });
+
+    const modChannel = await moderationChannel.create({
+      data: {
+        guildId,
+        channelId: channel.id,
+        moderationChannelSettingsId: settings.id,
+      },
+      include: { settings: true },
+    });
+
+    await moderationChannelSettings.update({
+      where: { id: settings.id },
+      data: { moderationChannelId: modChannel.id },
+    });
+
+    client.modLogs.set(guildId, {
+      channelId: modChannel.channelId,
+      settings: modChannel.settings,
+    });
+
+    return interaction.reply({
+      content: `Mod-logs channel set to ${channel}.`,
+      ephemeral: true,
+    });
   }
+
+  // — settings subcommand —
+  const newChannel = interaction.options.getChannel("channel", false);
+  const updates: Record<string, boolean | undefined> = {
+    deletedMessage:
+      interaction.options.getBoolean("deleted_messages") ?? undefined,
+    editedMessage:
+      interaction.options.getBoolean("edited_messages") ?? undefined,
+    userLeft: interaction.options.getBoolean("user_leave") ?? undefined,
+    userJoin: interaction.options.getBoolean("user_join") ?? undefined,
+    userBan: interaction.options.getBoolean("user_ban") ?? undefined,
+  };
+
+  const existing = await moderationChannel.findUnique({
+    where: { guildId },
+    include: { settings: true },
+  });
+
+  if (!existing) {
+    return interaction.reply({
+      content: "No mod-logs channel configured. Use `/modlogs setup` first.",
+      ephemeral: true,
+    });
+  }
+
+  if (newChannel) {
+    await moderationChannel.update({
+      where: { guildId },
+      data: { channelId: newChannel.id },
+    });
+
+    existing.channelId = newChannel.id;
+  }
+
+  const filteredUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => value !== null)
+  );
+
+  const newSettings =
+    Object.keys(filteredUpdates).length > 0
+      ? await moderationChannelSettings.update({
+          where: { id: existing.settings.id },
+          data: filteredUpdates,
+        })
+      : existing.settings;
+
+  client.modLogs.set(guildId, {
+    channelId: existing.channelId,
+    settings: newSettings,
+  });
+
+  return interaction.reply({
+    content: "Mod-logs settings updated successfully.",
+    ephemeral: true,
+  });
 }
 
 export const options: CommandOptions = {
   devOnly: false,
   deleted: false,
-
   userPermissions: ["Administrator"],
 };

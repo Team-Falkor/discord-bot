@@ -13,7 +13,7 @@ export default function (
 
     const modLogs = client.modLogs.get(message.guild.id);
     if (!modLogs) return;
-    if (!modLogs.settings?.deleted_message) return; // check i
+    if (!modLogs.settings?.deletedMessage) return;
 
     const embed = new EmbedBuilder()
       .setColor("Red")

@@ -1,18 +1,10 @@
+import { ModerationChannelSettings } from "@prisma/client";
 import { colors } from "../../handler";
 import { ClientClass } from "../../structure/Client";
 
 interface GuildsSettings {
   channelId: string;
-  settings: {
-    id: number;
-    deleted_message: boolean;
-    edited_message: boolean;
-    user_left: boolean;
-    user_join: boolean;
-    user_ban: boolean;
-    user_timeout: boolean;
-    user_kick: boolean;
-  };
+  settings: ModerationChannelSettings;
 }
 
 export class ModLogs {
@@ -96,8 +88,8 @@ export class ModLogs {
 
     const guilds = await client.db.moderationChannel.findMany({
       select: {
-        channel_id: true,
-        guild_id: true,
+        channelId: true,
+        guildId: true,
         id: true,
         settings: true,
       },
@@ -106,10 +98,10 @@ export class ModLogs {
     if (!guilds) return;
 
     for (const guild of guilds) {
-      if (!guild.guild_id || !guild.channel_id) continue;
+      if (!guild.guildId || !guild.channelId) continue;
 
-      this.set(guild.guild_id, {
-        channelId: guild.channel_id,
+      this.set(guild.guildId, {
+        channelId: guild.channelId,
         settings: guild.settings,
       });
     }

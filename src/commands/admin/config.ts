@@ -1,54 +1,57 @@
-import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
-
 import { EmbedBuilder } from "discord.js";
+import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "config_create",
-  description: "creates a config for your guild",
+  description: "Creates a config for your guild",
 };
 
-export async function run({ interaction, client, handler }: SlashCommandProps) {
-  const db = client.db.guild_config;
+export async function run({ interaction, client }: SlashCommandProps) {
+  const db = client.db;
 
   if (!interaction.guild) {
     return await interaction.reply({
-      content: "This command can only be used in a server",
+      content: "This command can only be used in a server.",
       ephemeral: true,
     });
   }
 
-  const hasConfig = await db.findUnique({
+  const guildId = interaction.guild.id;
+  const guildName = interaction.guild.name;
+
+  // Ensure Guild exists (create it if it doesn't)
+  await db.guild.upsert({
+    where: { id: guildId },
+    update: {},
+    create: { id: guildId, name: guildName },
+  });
+
+  const existingConfig = await db.guildConfig.findUnique({
     where: {
-      guild_id: interaction.guild.id,
+      guildId: guildId,
     },
   });
 
-  const embed = new EmbedBuilder()
-    .setColor("Red")
-    .setTitle("Config")
-    .setDescription("There is already a config for this server")
-    .setTimestamp();
+  const embed = new EmbedBuilder().setTitle("Guild Config").setTimestamp();
 
-  if (hasConfig)
+  if (existingConfig) {
+    embed
+      .setColor("Red")
+      .setDescription("There is already a config for this server.");
     return await interaction.reply({ embeds: [embed], ephemeral: true });
+  }
 
-  await db.create({
+  await db.guildConfig.create({
     data: {
-      guild_id: interaction.guild.id,
+      guildId: guildId,
     },
   });
 
   embed
     .setColor("Green")
-    .setTitle("Config")
-    .setDescription(`Config created for server ${interaction.guild.name}`)
-    .setTimestamp();
+    .setDescription(`Config created for server **${guildName}**.`);
 
-  console.info(
-    "Guild Config Created",
-    interaction.guild.name,
-    interaction.guild.id
-  );
+  console.info("Guild Config Created:", guildName, guildId);
 
   return await interaction.reply({ embeds: [embed], ephemeral: true });
 }

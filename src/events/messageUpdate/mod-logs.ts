@@ -20,7 +20,7 @@ export default function (
 
     const modLogs = client.modLogs.get(oldMessage.guild.id);
     if (!modLogs) return;
-    if (!modLogs.settings?.edited_message) return;
+    if (!modLogs.settings?.editedMessage) return;
 
     const embed = new EmbedBuilder()
       .setColor("Yellow")

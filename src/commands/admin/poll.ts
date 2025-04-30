@@ -1,5 +1,3 @@
-import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
-
 import {
   ActionRowBuilder,
   ApplicationCommandOptionType,
@@ -10,6 +8,7 @@ import {
   NewsChannel,
   TextChannel,
 } from "discord.js";
+import { CommandData, CommandOptions, SlashCommandProps } from "../../handler";
 
 export const data: CommandData = {
   name: "poll",
@@ -24,30 +23,23 @@ export const data: CommandData = {
   ],
 };
 
-export async function run({ interaction, client, handler }: SlashCommandProps) {
-  // Ensure the interaction has a valid channel before proceeding
-  if (!interaction.channel) {
-    console.error("Interaction has no channel.");
-    return;
-  }
-
-  // Ensure the channel is of a type that supports sending messages
+export async function run({ interaction, client }: SlashCommandProps) {
+  // Make sure we have a channel that can send messages
+  const channel = interaction.channel;
   if (
+    !channel ||
     !(
-      interaction.channel instanceof TextChannel ||
-      interaction.channel instanceof DMChannel ||
-      interaction.channel instanceof NewsChannel
+      channel instanceof TextChannel ||
+      channel instanceof DMChannel ||
+      channel instanceof NewsChannel
     )
   ) {
-    console.error("Unsupported channel type for sending poll message.");
+    console.error("Unsupported or missing channel on poll interaction.");
     return;
   }
 
-  // Send initial reply
-  await interaction.reply({
-    content: "Creating a poll",
-    ephemeral: true,
-  });
+  // Acknowledge immediately
+  await interaction.reply({ content: "Creating a poll…", ephemeral: true });
 
   const topic = interaction.options.getString("topic", true);
 
@@ -55,12 +47,15 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
     .setColor(client.config.color)
     .setTitle("📌 Poll started")
     .setDescription(`> ${topic}`)
-    .addFields({ name: "✅ Yes", value: "0", inline: true })
-    .addFields({ name: "❌ No", value: "0", inline: true })
+    .addFields([
+      { name: "✅ Yes", value: "0", inline: true },
+      { name: "❌ No", value: "0", inline: true },
+    ])
     .setFooter({
       text: `Started by ${interaction.user.username}`,
       iconURL: interaction.user.displayAvatarURL(),
-    });
+    })
+    .setTimestamp();
 
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -73,25 +68,23 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
       .setStyle(ButtonStyle.Danger)
   );
 
-  // At this point, we know `interaction.channel` is valid and supports `send()`
-  const msg = await interaction.channel.send({
-    embeds: [embed],
-    components: [buttons],
-  });
+  // Send the poll embed + buttons
+  const msg = await channel.send({ embeds: [embed], components: [buttons] });
 
-  // Create a message component collector for the poll
-  msg.createMessageComponentCollector();
+  // Collector that runs for up to 24h
+  msg.createMessageComponentCollector({ time: 24 * 60 * 60 * 1000 });
 
-  // Store poll data in the database
-  await client.db.poll_votes.create({
+  // Persist poll in your database
+  const db = client.pollVotes;
+  await db.create({
     data: {
-      guild_id: interaction.guild!.id,
-      owner_id: interaction.user.id,
-      message_id: msg.id,
-      down_members: [],
-      up_members: [],
-      downvotes: 0,
+      guildId: interaction.guild!.id,
+      ownerId: interaction.user.id,
+      messageId: msg.id,
+      upMembers: [],
+      downMembers: [],
       upvotes: 0,
+      downvotes: 0,
     },
   });
 }

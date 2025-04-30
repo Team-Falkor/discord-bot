@@ -11,7 +11,15 @@ import { ModLogs } from "./logs";
 
 export class ClientClass extends Client {
   public buttons = new Collection();
+
+  // Prisma client instance
   public db = new PrismaClient();
+
+  // Expose models directly for convenience
+  public pollVotes = this.db.pollVotes;
+  public reaction = this.db.reaction;
+  public countingGame = this.db.countingGame;
+
   public console = console;
   public config = config;
 
