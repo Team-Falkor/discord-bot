@@ -24,26 +24,54 @@ export async function run({ interaction, client, handler }: SlashCommandProps) {
 
     const embed = new EmbedBuilder()
       .setColor(client.config.color)
-      .setTitle("Counting leaderboard")
+      .setTitle("Counting Leaderboard")
       .setFooter({ text: `Requested by ${interaction.user.tag}` })
       .setTimestamp();
 
     if (data.length === 0) {
       embed.setDescription("No one has counted yet");
     } else {
-      data.forEach((user, index) => {
-        const find_user = client.users.cache.get(user.user_id);
-
+      // Fetch all users, fallback to API if not cached
+      for (let i = 0; i < data.length; i++) {
+        const userData = data[i];
+        let username = "Unknown User";
+        let userTag = "";
+        let userObj = client.users.cache.get(userData.user_id);
+        if (!userObj) {
+          try {
+            userObj = await client.users.fetch(userData.user_id);
+          } catch (e) {
+            // Ignore fetch error, keep username as Unknown User
+          }
+        }
+        if (userObj) {
+          username = userObj.username;
+          userTag = userObj.tag;
+        }
         embed.addFields({
-          name: `${index + 1}. ${find_user?.username}`,
-          value: `Score: ${user.counting_score}`,
+          name: `${i + 1}. ${username}`,
+          value: `Score: ${userData.counting_score}${
+            userTag ? `\nTag: ${userTag}` : ""
+          }`,
+          inline: false,
         });
-      });
+      }
     }
 
-    return await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed] });
   } catch (error) {
     console.error(error);
+    const errEmbed = new EmbedBuilder()
+      .setColor("Red")
+      .setDescription(
+        "⛔ Something went wrong while fetching the leaderboard. Please try again later."
+      )
+      .setTimestamp();
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ embeds: [errEmbed], ephemeral: true });
+    } else {
+      await interaction.reply({ embeds: [errEmbed], ephemeral: true });
+    }
   }
 }
 

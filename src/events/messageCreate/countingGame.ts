@@ -69,36 +69,28 @@ export default async function handleCountingGame(
     });
   }
 
-  const userRecord = guildConfig?.users.find(
+  let userRecord = guildConfig?.users.find(
     (u) => u.user_id === message.author?.id
   );
-
-  const currentScore = userRecord ? userRecord.counting_score : 0;
 
   // Handle wrong count scenario
   if (isWrongCount) {
     if (!userRecord) {
-      await client.db.guild_config.update({
-        where: { guild_id: guildId },
+      // Create user with score -1 for wrong count
+      await client.db.user.create({
         data: {
-          users: {
-            create: {
-              user_id: message.author.id,
-              counting_score: 0,
-            },
-          },
+          user_id: message.author.id,
+          counting_score: -1,
+          guild_configId: guildConfig.id,
         },
       });
     } else {
-      await client.db.user.updateMany({
-        where: {
-          guild_config: {
-            guild_id: guildId,
-          },
-          user_id: message.author.id,
-        },
+      await client.db.user.update({
+        where: { id: userRecord.id },
         data: {
-          counting_score: currentScore - 1,
+          counting_score: {
+            decrement: 1,
+          },
         },
       });
     }
@@ -143,10 +135,13 @@ export default async function handleCountingGame(
     },
   });
 
+  // Update or create user record for correct count
   if (!userRecord) {
     await client.db.user.create({
       data: {
         user_id: message.author.id,
+        counting_score: 1,
+        guild_configId: guildConfig.id,
       },
     });
   } else {

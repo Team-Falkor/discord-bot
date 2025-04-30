@@ -1,8 +1,5 @@
-import Console from "@tdanks2000/fancyconsolelog";
 import { EmbedBuilder, Interaction, PermissionsBitField } from "discord.js";
 import { ClientClass } from "../../structure";
-
-const console = new Console();
 
 module.exports = async (interaction: Interaction, client: ClientClass) => {
   if (!interaction.isButton()) return;

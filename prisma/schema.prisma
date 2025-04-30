@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,110 +8,144 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model guild_config {
-  id              Int      @id @default(autoincrement())
-  guild_id        String   @unique
-  rankup_messages Boolean? @default(false)
-  join_messages   Boolean? @default(false)
+model Guild {
+  /// Discord guild ID (primary key)
+  id                 String              @id
+  name               String?
+  config             GuildConfig?
+  users              User[]
+  pollVotes          PollVotes[]
+  balances           Balance[]
+  countingGames      CountingGame[]
+  levels             Level[]
+  moderationChannels ModerationChannel[]
+  autoJoinRoles      AutoJoinRoles[]
+  channelSettings    ChannelSettings?
+  reactions          Reaction[]
+  redditPosts        RedditPosts[]
+}
 
-  bannedWords String[] @default([])
-
-  users User[]
+model GuildConfig {
+  id             Int      @id @default(autoincrement())
+  rankupMessages Boolean  @default(false)
+  joinMessages   Boolean  @default(false)
+  bannedWords    String[] @default([])
+  guildId        String   @unique
+  guild          Guild    @relation(fields: [guildId], references: [id])
 }
 
 model User {
-  id             String @id @default(uuid())
-  user_id        String
-  counting_score Int    @default(0)
-  warnings       Int    @default(0)
-
-  guild_config   guild_config? @relation(fields: [guild_configId], references: [id])
-  guild_configId Int?
+  id                String         @id @default(uuid())
+  /// Discord user ID
+  discordId         String
+  countingScore     Int            @default(0)
+  warnings          Int            @default(0)
+  guildId           String
+  guild             Guild          @relation(fields: [guildId], references: [id])
+  pollVotes         PollVotes[] // Polls created by this user
+  balances          Balance[]
+  levels            Level[]
+  lastCountingGames CountingGame[] @relation("LastPersonRelation")
 }
 
-model poll_votes {
-  id           Int      @id @default(autoincrement())
-  guild_id     String
-  message_id   String
-  owner_id     String
-  up_members   String[] @default([])
-  down_members String[] @default([])
-  upvotes      Int      @default(0)
-  downvotes    Int      @default(0)
+model PollVotes {
+  id          Int      @id @default(autoincrement())
+  guildId     String
+  guild       Guild    @relation(fields: [guildId], references: [id])
+  messageId   String
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  upMembers   String[] @default([])
+  downMembers String[] @default([])
+  upvotes     Int      @default(0)
+  downvotes   Int      @default(0)
 }
 
-model balance {
-  id       String @id @default(uuid())
-  user_id  String
-  guild_id String
-  balance  Int    @default(0)
+model Balance {
+  id      String @id @default(uuid())
+  userId  String
+  guildId String
+  balance Int    @default(0)
+  user    User   @relation(fields: [userId], references: [id])
+  guild   Guild  @relation(fields: [guildId], references: [id])
 }
 
-model counting_game {
-  id             String @id @default(uuid())
-  guild_id       String
-  channel_id     String @unique
-  count          Int    @default(1)
-  last_person_id String
+model CountingGame {
+  id           String  @id @default(uuid())
+  guildId      String
+  guild        Guild   @relation(fields: [guildId], references: [id])
+  channelId    String  @unique
+  count        Int     @default(1)
+  lastPersonId String?
+  lastPerson   User?   @relation("LastPersonRelation", fields: [lastPersonId], references: [id])
 }
 
-model level {
-  id       String @id @default(uuid())
-  user_id  String
-  guild_id String
-  xp       Int    @default(0)
-  level    Int    @default(0)
+model Level {
+  id      String @id @default(uuid())
+  userId  String
+  guildId String
+  xp      Int    @default(0)
+  level   Int    @default(0)
+  user    User   @relation(fields: [userId], references: [id])
+  guild   Guild  @relation(fields: [guildId], references: [id])
 }
 
 model ModerationChannel {
-  id         Int                       @id @unique @default(autoincrement())
-  guild_id   String                    @unique
-  channel_id String
-  settings   ModerationChannelSettings @relation(fields: [id], references: [id])
+  id                          Int                       @id @default(autoincrement())
+  guildId                     String                    @unique
+  guild                       Guild                     @relation(fields: [guildId], references: [id])
+  channelId                   String
+  settings                    ModerationChannelSettings @relation(fields: [moderationChannelSettingsId], references: [id])
+  moderationChannelSettingsId Int                       @unique
 }
 
 model ModerationChannelSettings {
-  id                Int                @id @unique @default(autoincrement())
-  deleted_message   Boolean            @default(true)
-  edited_message    Boolean            @default(true)
-  user_left         Boolean            @default(true)
-  user_join         Boolean            @default(true)
-  user_ban          Boolean            @default(true)
-  user_timeout      Boolean            @default(true)
-  user_kick         Boolean            @default(true)
-  ModerationChannel ModerationChannel?
+  id                  Int                @id @default(autoincrement())
+  moderationChannelId Int                @unique
+  deletedMessage      Boolean            @default(true)
+  editedMessage       Boolean            @default(true)
+  userLeft            Boolean            @default(true)
+  userJoin            Boolean            @default(true)
+  userBan             Boolean            @default(true)
+  userTimeout         Boolean            @default(true)
+  userKick            Boolean            @default(true)
+  moderationChannel   ModerationChannel?
 }
 
 model Reaction {
-  id         Int    @id @default(autoincrement())
-  guild_id   String
-  message_id String
-  emoji      String
-  role       String
+  id        Int    @id @default(autoincrement())
+  guildId   String
+  guild     Guild  @relation(fields: [guildId], references: [id])
+  messageId String
+  emoji     String
+  role      String
 }
 
 model AutoJoinRoles {
-  id       Int    @id @default(autoincrement())
-  guild_id String
-  role     String
+  id      Int    @id @default(autoincrement())
+  guildId String
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  role    String
 }
 
 model ChannelSettings {
-  id                        Int      @id @unique @default(autoincrement())
-  guid_id                   String   @unique
-  channel_id_reddit_posts   String?  @unique
-  subreddits                String[] @default([])
-  subreddits_interval_hours Int      @default(3)
-  channel_id_members        String?  @unique
-  channel_id_online         String?  @unique
-  channel_id_offline        String?  @unique
-  join_messages             String?  @unique
+  id                      Int      @id @default(autoincrement())
+  guildId                 String   @unique
+  guild                   Guild    @relation(fields: [guildId], references: [id])
+  channelIdRedditPosts    String?  @unique
+  subreddits              String[] @default([])
+  subredditsIntervalHours Int      @default(3)
+  channelIdMembers        String?  @unique
+  channelIdOnline         String?  @unique
+  channelIdOffline        String?  @unique
+  joinMessages            String?
 }
 
 model RedditPosts {
-  id        Int    @id @unique @default(autoincrement())
-  title     String
-  sub       String
-  guiid_id  String
-  reddit_id String
+  id       Int    @id @default(autoincrement())
+  title    String
+  sub      String
+  guildId  String
+  redditId String
+  guild    Guild  @relation(fields: [guildId], references: [id])
 }

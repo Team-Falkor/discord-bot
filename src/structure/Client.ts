@@ -1,10 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import Console from "@tdanks2000/fancyconsolelog";
 import { Client, Collection } from "discord.js";
 import path from "node:path";
 import { clientOptions } from "./utils/ClientOptions";
-
-const console = new Console();
 
 import { colors, Handler } from "../handler";
 import { config } from "../utils/config";
